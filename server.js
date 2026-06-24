@@ -29,8 +29,12 @@ VESSELS.forEach(v => {
 const app    = express();
 const server = http.createServer(app);
 
+/* Flat repo — index.html is in the same directory as server.js */
+const HTML_FILE  = path.join(__dirname, 'index.html');
+const STATIC_DIR = __dirname;
+
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(STATIC_DIR));
 
 /* REST: full snapshot */
 app.get('/api/vessels', (_req, res) => {
@@ -60,6 +64,18 @@ app.patch('/api/vessels/:mmsi', (req, res) => {
   if (fw  !== undefined) v.fw  = fw;
   broadcast({ type:'update', vessel:v });
   res.json({ ok:true, vessel:v });
+});
+
+/* Catch-all: serve index.html for every non-API GET (must come last) */
+app.get('*', (_req, res) => {
+  if (HTML_FILE) {
+    res.sendFile(HTML_FILE);
+  } else {
+    res.status(404).send(
+      '<h2>index.html not found</h2>' +
+      '<p>Put <code>index.html</code> in a <code>public/</code> folder next to <code>server.js</code>.</p>'
+    );
+  }
 });
 
 /* ── Frontend WebSocket (/ws) ────────────────────── */
