@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JME Navigation S.A. — Fleet Operations Centre</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060F1B;--surf:#0B1C30;--card:#0F2440;--card2:#14304F;
+  --bdr:#1C3A58;--bdr2:#254E74;
+  --brass:#D4943A;--brass2:#E8B860;--cyan:#5BB8D4;--green:#3DBF7A;--amber:#E8C040;
+  --txt:#9ABACC;      /* main readable text     */
+  --label:#5E8FAD;    /* secondary labels       */
+  --muted:#3D6A8A;    /* empty / placeholder    */
+  --bright:#D0E8F4;   /* high-emphasis values   */
+  --uw:#FF6B2B;--mo:#2EFFA6;--an:#FFD600;--uk:#7A9DB5;
+}
+html,body{height:100%;overflow:hidden;font-family:'Segoe UI',-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--txt)}
+#app{display:flex;flex-direction:column;height:100vh}
+#hbar{height:54px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:var(--surf);border-bottom:1px solid var(--bdr)}
+#main{display:flex;flex:1;overflow:hidden}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-sub{font-size:9px;color:var(--label);letter-spacing:2px;text-transform:uppercase;margin-left:2px}
+.hstats{display:flex;gap:0;align-items:center;background:rgba(6,15,27,.7);border:1px solid var(--bdr);border-radius:26px;padding:4px 4px}
+.hstat{text-align:center;padding:2px 14px}
+.hstat .hv{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;display:block;line-height:1.15}
+.hstat .hl{font-size:8.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;display:block;margin-top:1px}
+.hstat-sep{width:1px;height:26px;background:var(--bdr2);flex-shrink:0}
+.hright{display:flex;align-items:center;gap:10px}
+#utc{font-size:13px;font-weight:500;color:var(--cyan);font-variant-numeric:tabular-nums;letter-spacing:.3px}
+#mode-pill{display:flex;align-items:center;gap:6px;padding:5px 11px;border:1px solid var(--bdr);border-radius:20px;font-size:11px;color:var(--txt);cursor:pointer;transition:border-color .2s,color .2s}
+#mode-pill:hover{border-color:var(--brass);color:var(--brass2)}
+.mdot{width:7px;height:7px;border-radius:50%}
+.mdot-demo{background:var(--amber);box-shadow:0 0 6px var(--amber)}
+.mdot-live{background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s ease-in-out infinite}
+.mdot-conn{background:var(--brass);animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.sb{width:260px;flex-shrink:0;background:var(--surf);display:flex;flex-direction:column;overflow:hidden}
+#sb-l{border-right:1px solid var(--bdr)}
+#sb-r{border-left:1px solid var(--bdr)}
+.sb-hd{padding:9px 12px 8px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between}
+.sb-title{font-size:9px;font-weight:700;color:var(--label);letter-spacing:2px;text-transform:uppercase}
+.sb-tag{font-size:9px;color:var(--txt);background:var(--card);border:1px solid var(--bdr2);padding:2px 8px;border-radius:10px;font-weight:600}
+.vlist{flex:1;overflow-y:auto;padding:6px;display:flex;flex-direction:column;gap:6px}
+.vlist::-webkit-scrollbar{width:3px}
+.vlist::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:2px}
+.vc{background:var(--card);border:1px solid var(--bdr);border-radius:9px;overflow:hidden;cursor:pointer;transition:all .2s;position:relative}
+.vc:hover{background:var(--card2);border-color:rgba(212,148,58,.4)}
+.vc.sel{border-color:var(--cyan);box-shadow:0 0 16px rgba(91,184,212,.12)}
+.vc::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:9px 0 0 9px}
+.vc.st-uw::before{background:var(--uw)}.vc.st-mo::before{background:var(--mo)}
+.vc.st-an::before{background:var(--an)}.vc.st-uk::before{background:var(--uk)}
+.vc-top{display:flex;align-items:flex-start;justify-content:space-between;padding:8px 10px 7px 12px;border-bottom:1px solid rgba(28,58,88,.5);gap:6px}
+.vc-name{font-size:11.5px;font-weight:700;color:var(--bright)}
+.vc-type{font-size:8px;color:var(--label);text-transform:uppercase;letter-spacing:.7px;margin-top:2px}
+.badge{display:flex;align-items:center;gap:4px;font-size:8px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:2px 7px;border-radius:9px;white-space:nowrap;flex-shrink:0}
+.b-uw{color:var(--uw);background:rgba(255,107,43,.12);border:1px solid rgba(255,107,43,.3)}
+.b-uw .bd{background:var(--uw);box-shadow:0 0 4px var(--uw);animation:pulse 2s infinite}
+.b-mo{color:var(--mo);background:rgba(46,255,166,.09);border:1px solid rgba(46,255,166,.28)}
+.b-mo .bd{background:var(--mo)}
+.b-an{color:var(--an);background:rgba(255,214,0,.09);border:1px solid rgba(255,214,0,.28)}
+.b-an .bd{background:var(--an)}
+.b-uk{color:var(--uk);background:rgba(122,157,181,.1);border:1px solid rgba(122,157,181,.25)}
+.b-uk .bd{background:var(--uk)}
+.bd{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.vc-body{padding:7px 10px 7px 12px;display:flex;flex-direction:column;gap:4px}
+.row{display:grid;gap:4px}.r21{grid-template-columns:1.2fr 1fr}.r2{grid-template-columns:1fr 1fr}
+.cell{background:rgba(6,15,27,.6);border:1px solid rgba(28,58,88,.5);border-radius:5px;padding:4px 6px}
+.cl{font-size:7.5px;font-weight:700;color:var(--label);text-transform:uppercase;letter-spacing:.9px;margin-bottom:2px}
+.cv{font-size:10.5px;font-weight:600;color:var(--bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.cv.brass{color:var(--brass2)}.cv.uw{color:var(--uw)}
+.cv.muted{color:var(--muted);font-weight:400;font-size:10px}
+.lt-tz{font-size:8px;color:var(--txt);margin-left:1px;font-weight:400}
+.vc-ft{padding:4px 10px 5px 12px;border-top:1px solid rgba(28,58,88,.4);display:flex;justify-content:space-between;align-items:center}
+.ft-mmsi{font-size:8px;color:var(--label);font-family:monospace;letter-spacing:.3px}
+.ft-upd{font-size:8px;color:var(--label)}
+#mapwrap{flex:1;position:relative;overflow:hidden}
+#map{height:100%;width:100%}
+.leaflet-container{background:#04090F}
+.leaflet-tooltip{background:rgba(6,15,27,.96)!important;border:1px solid var(--bdr2)!important;color:var(--txt)!important;border-radius:8px!important;font-family:'Segoe UI',sans-serif!important;font-size:12px!important;padding:8px 12px!important;box-shadow:0 4px 16px rgba(0,0,0,.6)!important;white-space:nowrap}
+.leaflet-tooltip::before{display:none!important}
+.tt-name{font-weight:700;color:var(--bright);margin-bottom:3px}
+.tt-row{color:var(--txt);font-size:11px;line-height:1.6}
+.tt-uw{color:var(--uw);font-variant-numeric:tabular-nums;font-weight:600}
+.tt-brass{color:var(--brass2)}
+.movl{position:absolute;z-index:500}
+.movl.tr{top:12px;right:12px;display:flex;flex-direction:column;gap:6px}
+.movl.bl{bottom:28px;right:12px}
+.mctrl{display:flex;align-items:center;gap:6px;background:rgba(6,15,27,.92);border:1px solid var(--bdr2);border-radius:7px;padding:6px 11px;font-size:11px;color:var(--txt);cursor:pointer;transition:all .2s;backdrop-filter:blur(6px)}
+.mctrl:hover{border-color:var(--brass);color:var(--brass2)}
+.legend{background:rgba(6,15,27,.94);border:1px solid rgba(91,184,212,.18);border-radius:7px;padding:9px 12px;backdrop-filter:blur(8px);box-shadow:0 2px 16px rgba(0,0,0,.6)}
+.leg-t{font-size:8.5px;font-weight:700;color:var(--label);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:7px}
+.leg-r{display:flex;align-items:center;gap:7px;font-size:10px;color:var(--txt);font-weight:500;margin-bottom:4px}
+.leg-r:last-child{margin-bottom:0}
+.leg-d{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+#modal-bg{display:none;position:fixed;inset:0;background:rgba(4,12,24,.9);z-index:2000;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+#modal-bg.open{display:flex}
+.modal{background:var(--surf);border:1px solid var(--bdr2);border-radius:12px;width:520px;max-height:85vh;overflow-y:auto;padding:22px}
+.modal::-webkit-scrollbar{width:3px}
+.modal::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:2px}
+.mh{font-size:16px;font-weight:700;color:var(--brass2);margin-bottom:3px}
+.ms{font-size:12px;color:var(--txt);line-height:1.6;margin-bottom:16px}
+.infobox{background:rgba(91,184,212,.05);border:1px solid rgba(91,184,212,.18);border-radius:7px;padding:10px 13px;margin-bottom:16px}
+.infobox p{font-size:11px;color:var(--txt);line-height:1.75}
+.infobox a{color:var(--cyan);text-decoration:none}
+.fl{display:block;font-size:9px;font-weight:700;color:var(--label);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;margin-top:10px}
+.fi{width:100%;background:var(--bg);border:1px solid var(--bdr);border-radius:7px;padding:7px 10px;color:var(--bright);font-size:12px;outline:none;transition:border-color .2s;font-family:monospace}
+.fi:focus{border-color:var(--cyan)}.fi[type=datetime-local]{color-scheme:dark}
+.div{height:1px;background:var(--bdr);margin:14px 0}
+.sec-t{font-size:9px;font-weight:700;color:var(--label);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px}
+.vcfg{background:var(--card);border:1px solid var(--bdr);border-radius:7px;padding:10px;margin-bottom:8px}
+.vcfg-label{font-size:10px;font-weight:700;color:var(--txt);margin-bottom:6px}
+.g22{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.mactions{display:flex;gap:8px;margin-top:18px}
+.btn-p{flex:1;padding:9px;background:var(--brass);color:#060F1B;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s}
+.btn-p:hover{background:var(--brass2)}
+.btn-c{flex:1;padding:9px;background:transparent;color:var(--txt);border:1px solid var(--bdr2);border-radius:7px;font-size:13px;cursor:pointer;transition:all .2s}
+.btn-c:hover{border-color:var(--cyan);color:var(--bright)}
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="hbar">
+    <div class="brand">
+      <img src="https://jmenav.gr/wp-content/uploads/2024/12/JME-LOGOTYPE.png" alt="JME Navigation" style="height:32px;width:auto;flex-shrink:0"/>
+      <div class="brand-sub">Fleet Operations Centre</div>
+    </div>
+    <div class="hstats">
+      <div class="hstat">
+        <span class="hv" style="color:var(--brass2)" id="s-tot">6</span>
+        <span class="hl" style="color:var(--brass)">Fleet</span>
+      </div>
+      <div class="hstat-sep"></div>
+      <div class="hstat">
+        <span class="hv" style="color:var(--uw)" id="s-uw">0</span>
+        <span class="hl" style="color:rgba(255,107,43,.85)">Underway</span>
+      </div>
+      <div class="hstat">
+        <span class="hv" style="color:var(--mo)" id="s-mo">0</span>
+        <span class="hl" style="color:rgba(46,255,166,.75)">In Port</span>
+      </div>
+      <div class="hstat">
+        <span class="hv" style="color:var(--an)" id="s-an">0</span>
+        <span class="hl" style="color:rgba(255,214,0,.75)">At Anchor</span>
+      </div>
+    </div>
+    <div class="hright">
+      <span id="utc">00:00:00 UTC</span>
+      <div id="mode-pill" onclick="openCfg()">
+        <div class="mdot mdot-demo" id="mdot"></div>
+        <span id="mtext">Demo Mode</span>
+      </div>
+    </div>
+  </header>
+
+  <div id="main">
+    <aside class="sb" id="sb-l">
+      <div class="sb-hd"><span class="sb-title">Port Wing</span><span class="sb-tag">3 Vessels</span></div>
+      <div class="vlist" id="vlist-l"></div>
+    </aside>
+
+    <div id="mapwrap">
+      <div id="map"></div>
+      <div class="movl tr">
+        <button class="mctrl" onclick="fitAll()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+          Fit Fleet
+        </button>
+        <button class="mctrl" onclick="openCfg()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          Voyage Data
+        </button>
+      </div>
+      <div class="movl bl">
+        <div class="legend">
+          <div class="leg-t">Vessel Status</div>
+          <div class="leg-r"><div class="leg-d" style="background:var(--uw)"></div>Underway</div>
+          <div class="leg-r"><div class="leg-d" style="background:var(--mo)"></div>In Port / Moored</div>
+          <div class="leg-r"><div class="leg-d" style="background:var(--an)"></div>At Anchor</div>
+          <div class="leg-r"><div class="leg-d" style="background:var(--uk)"></div>Not Reporting</div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="sb" id="sb-r">
+      <div class="sb-hd"><span class="sb-title">Starboard Wing</span><span class="sb-tag">3 Vessels</span></div>
+      <div class="vlist" id="vlist-r"></div>
+    </aside>
+  </div>
+</div>
+
+<div id="modal-bg" onclick="bgClick(event)">
+  <div class="modal">
+    <div class="mh">Voyage Data</div>
+    <div class="ms">Manage operational fields per vessel. AIS positions update automatically every 15 minutes via the server.</div>
+    <div class="infobox">
+      <p>Live AIS: set <code style="color:var(--cyan)">AIS_API_KEY</code> in Railway environment variables → <a href="https://aisstream.io" target="_blank">aisstream.io</a> (free).</p>
+      <p style="margin-top:6px">HARILAOS JUNIOR: MMSI not yet indexed. Update <code style="color:var(--cyan)">server.js</code> when confirmed (IMO 1041506).</p>
+    </div>
+    <div class="div"></div>
+    <div class="sec-t">Vessel Operational Data</div>
+    <div id="cfgrows"></div>
+    <div class="mactions">
+      <button class="btn-c" onclick="closeCfg()">Close</button>
+      <button class="btn-p" onclick="applyCfg()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const IS_SERVER = location.protocol!=='file:';
+const APP={ws:null,demo:null,sel:null,mode:'demo',retryTimer:null};
+
+const CFGS=[
+  {mmsi:'538004721',name:'M/V MOTHER M',      type:'Handysize Bulk Carrier',etb:'',etc:'',bod:'',fw:''},
+  {mmsi:'538005001',name:'M/V MARIGOULA',      type:'Supramax Bulk Carrier', etb:'',etc:'',bod:'',fw:''},
+  {mmsi:'538005436',name:'M/V ZOITSA SIGALA',  type:'Ultramax Bulk Carrier', etb:'',etc:'',bod:'',fw:''},
+  {mmsi:'538008208',name:'M/V PRINCESS MARGO', type:'Ultramax Bulk Carrier', etb:'',etc:'',bod:'',fw:''},
+  {mmsi:'538011213',name:'M/V PRINCESS EIRINI',type:'Ultramax Bulk Carrier', etb:'',etc:'',bod:'',fw:''},
+  {mmsi:'538000000',name:'M/V HARILAOS JUNIOR',type:'Ultramax Bulk Carrier', etb:'',etc:'',bod:'',fw:''},
+];
+const DEMO=[
+  {lat:-10.20,lng:40.45, sog:10.8,cog:175,ns:0,dest:'BEIRA',     eta:''},
+  {lat:-19.83,lng:34.84, sog:0.0, cog:0,  ns:5,dest:'BEIRA',     eta:''},
+  {lat:43.05, lng:-55.20,sog:12.5,cog:82, ns:0,dest:'',          eta:''},
+  {lat:15.10, lng:68.50, sog:11.5,cog:95, ns:0,dest:'GANGAVARAM',eta:''},
+  {lat:12.43, lng:-87.18,sog:0.0, cog:0,  ns:5,dest:'CORINTO',   eta:''},
+  {lat:41.12, lng:1.25,  sog:0.2, cog:0,  ns:1,dest:'TARRAGONA', eta:''},
+];
+const V={};
+
+function initV(){
+  CFGS.forEach((c,i)=>{
+    const d=DEMO[i]||{};
+    V[c.mmsi]={mmsi:c.mmsi,name:c.name,type:c.type,
+      lat:d.lat,lng:d.lng,sog:d.sog,cog:d.cog,ns:d.ns,
+      dest:d.dest,eta:d.eta,etb:c.etb,etc:c.etc,bod:c.bod,fw:c.fw,
+      ts:Date.now()};
+  });
+}
+
+let MAP,MK={};
+function initMap(){
+  MAP=L.map('map',{center:[20,20],zoom:3,zoomControl:false});
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    {attribution:'Imagery \xa9 Esri',maxZoom:19}).addTo(MAP);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+    {maxZoom:19,opacity:0.60}).addTo(MAP);
+  L.control.zoom({position:'bottomleft'}).addTo(MAP);
+}
+
+function stCol(ns){
+  if(ns===0||ns===8)return'#FF6B2B';
+  if(ns===1)return'#FFD600';
+  if(ns===5)return'#2EFFA6';
+  return'#7A9DB5';
+}
+function mkIcon(cog,ns){
+  const c=stCol(ns),r=cog||0,uw=ns===0||ns===8,mo=ns===5;
+  const svg=`<svg viewBox="0 0 52 52" width="34" height="34" xmlns="http://www.w3.org/2000/svg">
+    ${uw?`<circle cx="26" cy="26" r="23" fill="none" stroke="${c}" stroke-width="0.9" opacity=".22"/>`:''}
+    <g transform="rotate(${r} 26 26)">
+      <path d="M26,8 L32,17 L32,43 Q32,46 26,47 Q20,46 20,43 L20,17 Z" fill="${c}" opacity="${mo?'.58':'.90'}"/>
+      <path d="M26,9 L31,17 L21,17 Z" fill="rgba(255,255,255,.14)"/>
+      <rect x="21" y="20" width="10" height="7.5" rx="0.7" fill="rgba(0,0,0,.44)"/>
+      <rect x="21" y="30" width="10" height="7.5" rx="0.7" fill="rgba(0,0,0,.44)"/>
+      <rect x="20.5" y="39.5" width="11" height="6" rx="0.8" fill="rgba(0,0,0,.60)"/>
+      <rect x="21.5" y="40.4" width="9" height="1.3" rx="0.3" fill="rgba(255,255,255,.25)"/>
+      <circle cx="22" cy="24" r="1.1" fill="rgba(255,255,255,.22)"/>
+      <circle cx="30" cy="24" r="1.1" fill="rgba(255,255,255,.22)"/>
+      <circle cx="22" cy="34" r="1.1" fill="rgba(255,255,255,.22)"/>
+      <circle cx="30" cy="34" r="1.1" fill="rgba(255,255,255,.22)"/>
+    </g></svg>`;
+  return L.divIcon({html:svg,className:'',iconSize:[34,34],iconAnchor:[17,17]});
+}
+function putMk(mmsi){
+  const v=V[mmsi];if(!v||v.lat==null)return;
+  const icon=mkIcon(v.cog,v.ns);
+  const tt=`<div class="tt-name">${v.name}</div>
+    <div class="tt-row">${nsText(v.ns)} \xb7 <span class="tt-uw">${v.sog!=null?v.sog.toFixed(1)+' kn':'\u2014'}</span></div>
+    <div class="tt-row">\u2192 <span class="tt-brass">${v.dest||'\u2014'}</span></div>`;
+  if(MK[mmsi]){MK[mmsi].setLatLng([v.lat,v.lng]).setIcon(icon).setTooltipContent(tt);}
+  else{MK[mmsi]=L.marker([v.lat,v.lng],{icon}).bindTooltip(tt,{sticky:true}).on('click',()=>selV(mmsi)).addTo(MAP);}
+}
+function fitAll(){
+  const pts=Object.values(V).filter(v=>v.lat!=null).map(v=>[v.lat,v.lng]);
+  if(pts.length)MAP.fitBounds(pts,{padding:[55,55]});
+}
+
+function nsText(ns){return{0:'Underway',1:'At Anchor',5:'Moored',8:'Sailing'}[ns]||'Unknown';}
+function stClass(ns){return ns===0||ns===8?'st-uw':ns===1?'st-an':ns===5?'st-mo':'st-uk';}
+function badgeClass(ns){return ns===0||ns===8?'b-uw':ns===1?'b-an':ns===5?'b-mo':'b-uk';}
+function fdt(s){
+  if(!s)return'\u2014';
+  const m=String(s).match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if(!m)return s;
+  const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return`${m[3]} ${mo[+m[2]-1]} ${m[4]}:${m[5]}`;
+}
+function ago(ts){
+  if(!ts)return'\u2014';
+  const s=(Date.now()-ts)/1000;
+  if(s<90)return'Just now';
+  if(s<3600)return`${~~(s/60)}m ago`;
+  if(s<86400)return`${~~(s/3600)}h ago`;
+  return`${~~(s/86400)}d ago`;
+}
+function localTime(lng){
+  if(lng==null||lng==='')return'\u2014';
+  const off=Math.round(parseFloat(lng)/15);
+  const d=new Date(Date.now()+off*3600000);
+  const hh=String(d.getUTCHours()).padStart(2,'0');
+  const mm=String(d.getUTCMinutes()).padStart(2,'0');
+  const ss=String(d.getUTCSeconds()).padStart(2,'0');
+  const sgn=off>=0?'+':'';
+  return`${hh}:${mm}:${ss}<span class="lt-tz"> UTC${sgn}${off}</span>`;
+}
+
+function cardHTML(mmsi){
+  const v=V[mmsi];if(!v)return'';
+  const sc=stClass(v.ns),bc=badgeClass(v.ns),nt=nsText(v.ns),sel=APP.sel===mmsi;
+  return`<div class="vc ${sc}${sel?' sel':''}" id="vc-${mmsi}" onclick="selV('${mmsi}')">
+    <div class="vc-top">
+      <div><div class="vc-name">${v.name}</div><div class="vc-type">${v.type}</div></div>
+      <div class="badge ${bc}"><div class="bd"></div>${nt}</div>
+    </div>
+    <div class="vc-body">
+      <div class="row r21">
+        <div class="cell"><div class="cl">Next Port</div><div class="cv brass">${v.dest||'\u2014'}</div></div>
+        <div class="cell"><div class="cl">Speed SOG</div><div class="cv uw">${v.sog!=null?v.sog.toFixed(1)+' kn':'\u2014'}</div></div>
+      </div>
+      <div class="row r2">
+        <div class="cell"><div class="cl">Local Time</div><div class="cv" data-lng="${v.lng!=null?v.lng:''}">${localTime(v.lng)}</div></div>
+        <div class="cell"><div class="cl">ETA</div><div class="cv${v.eta?'':' muted'}">${fdt(v.eta)}</div></div>
+      </div>
+      <div class="row r2">
+        <div class="cell"><div class="cl">ETB</div><div class="cv${v.etb?'':' muted'}">${fdt(v.etb)}</div></div>
+        <div class="cell"><div class="cl">ETC</div><div class="cv${v.etc?'':' muted'}">${fdt(v.etc)}</div></div>
+      </div>
+      <div class="row r2">
+        <div class="cell"><div class="cl">BOD</div><div class="cv${v.bod?'':' muted'}">${fdt(v.bod)}</div></div>
+        <div class="cell"><div class="cl">Fresh Water</div><div class="cv${v.fw?'':' muted'}">${v.fw||'\u2014'}</div></div>
+      </div>
+    </div>
+    <div class="vc-ft">
+      <span class="ft-mmsi">${v.mmsi}</span>
+      <span class="ft-upd">\u21bb ${ago(v.ts)}</span>
+    </div>
+  </div>`;
+}
+
+function renderCards(){
+  const mmsis=Object.keys(V);
+  const eL=document.getElementById('vlist-l'),eR=document.getElementById('vlist-r');
+  if(!eL||!eR)return;
+  const sL=eL.scrollTop,sR=eR.scrollTop;
+  eL.innerHTML=mmsis.slice(0,3).map(m=>cardHTML(m)).join('');
+  eR.innerHTML=mmsis.slice(3).map(m=>cardHTML(m)).join('');
+  eL.scrollTop=sL;eR.scrollTop=sR;
+  updStats();
+}
+function updStats(){
+  const all=Object.values(V);
+  document.getElementById('s-uw').textContent=all.filter(v=>v.ns===0||v.ns===8).length;
+  document.getElementById('s-mo').textContent=all.filter(v=>v.ns===5).length;
+  document.getElementById('s-an').textContent=all.filter(v=>v.ns===1).length;
+}
+function selV(mmsi){
+  APP.sel=mmsi;renderCards();
+  const v=V[mmsi];if(v&&v.lat!=null)MAP.flyTo([v.lat,v.lng],8,{duration:1.3});
+}
+
+function startDemo(){
+  if(APP.demo)return;
+  APP.demo=setInterval(()=>{
+    Object.values(V).forEach(v=>{
+      if(v.ns===0||v.ns===8){
+        const km=(v.sog||10)*1.852/3600*4,rad=(v.cog||0)*Math.PI/180;
+        if(v.lat!=null)v.lat+=(km/111.32)*Math.cos(rad);
+        if(v.lng!=null)v.lng+=(km/(111.32*Math.cos((v.lat||0)*Math.PI/180)))*Math.sin(rad);
+        v.cog=((v.cog||0)+(Math.random()-.5)*1.5+360)%360;
+        v.sog=Math.max(7,Math.min(15,(v.sog||10)+(Math.random()-.5)*.4));
+        v.ts=Date.now();
+      }
+      putMk(v.mmsi);
+    });
+    renderCards();
+  },4000);
+}
+function stopDemo(){if(APP.demo){clearInterval(APP.demo);APP.demo=null;}}
+
+function applyVessel(data){
+  const v=V[data.mmsi];if(!v)return;
+  if(data.lat!=null)v.lat=data.lat;
+  if(data.lng!=null)v.lng=data.lng;
+  if(data.sog!=null)v.sog=data.sog;
+  if(data.cog!=null)v.cog=data.cog;
+  if(data.ns!=null)v.ns=data.ns;
+  if(data.dest!=null)v.dest=data.dest;
+  if(data.eta!=null)v.eta=data.eta;
+  if(data.ts!=null)v.ts=new Date(data.ts).getTime();
+  putMk(v.mmsi);
+}
+
+async function fetchPositions(){
+  try{
+    const r=await fetch('/api/vessels');if(!r.ok)throw new Error(r.status);
+    const{vessels}=await r.json();
+    vessels.forEach(applyVessel);renderCards();
+  }catch(e){console.warn('[fetch]',e.message);}
+}
+
+function connectBackend(){
+  if(!IS_SERVER){startDemo();return;}
+  setMode('conn');
+  const proto=location.protocol==='https:'?'wss:':'ws:';
+  const ws=new WebSocket(`${proto}//${location.host}/ws`);
+  APP.ws=ws;
+  ws.onopen=()=>{setMode('live');stopDemo();clearTimeout(APP.retryTimer);};
+  ws.onmessage=e=>{
+    try{
+      const msg=JSON.parse(e.data);
+      if(msg.type==='snapshot'){msg.vessels.forEach(applyVessel);renderCards();setTimeout(fitAll,400);}
+      else if(msg.type==='update'){applyVessel(msg.vessel);renderCards();}
+      else if(msg.type==='refresh'){fetchPositions();}
+    }catch{}
+  };
+  ws.onclose=()=>{if(APP.mode!=='demo')setMode('demo');startDemo();APP.retryTimer=setTimeout(connectBackend,12000);};
+  ws.onerror=()=>{if(APP.mode!=='demo')setMode('demo');startDemo();};
+}
+
+function setMode(m){
+  APP.mode=m;
+  const dot=document.getElementById('mdot'),txt=document.getElementById('mtext');
+  dot.className='mdot';
+  if(m==='live'){dot.classList.add('mdot-live');txt.textContent='Live AIS';}
+  else if(m==='conn'){dot.classList.add('mdot-conn');txt.textContent='Connecting\u2026';}
+  else{dot.classList.add('mdot-demo');txt.textContent='Demo Mode';}
+}
+
+function tick(){
+  const n=new Date();
+  document.getElementById('utc').textContent=
+    n.getUTCHours().toString().padStart(2,'0')+':'+
+    n.getUTCMinutes().toString().padStart(2,'0')+':'+
+    n.getUTCSeconds().toString().padStart(2,'0')+' UTC';
+  document.querySelectorAll('[data-lng]').forEach(el=>{
+    if(el.dataset.lng!=='')el.innerHTML=localTime(parseFloat(el.dataset.lng));
+  });
+}
+
+function openCfg(){
+  document.getElementById('cfgrows').innerHTML=CFGS.map((c,i)=>`
+    <div class="vcfg">
+      <div class="vcfg-label">${c.name}</div>
+      <div class="g22">
+        <div><label class="fl" style="margin-top:0">ETB</label><input class="fi" type="datetime-local" id="vetb${i}" value="${c.etb||''}"/></div>
+        <div><label class="fl" style="margin-top:0">ETC</label><input class="fi" type="datetime-local" id="vetc${i}" value="${c.etc||''}"/></div>
+        <div><label class="fl" style="margin-top:0">BOD</label><input class="fi" type="datetime-local" id="vbod${i}" value="${c.bod||''}"/></div>
+        <div><label class="fl" style="margin-top:0">Fresh Water</label><input class="fi" id="vfw${i}" value="${c.fw||''}" placeholder="e.g. 185 MT"/></div>
+      </div>
+    </div>`).join('');
+  document.getElementById('modal-bg').classList.add('open');
+}
+function closeCfg(){document.getElementById('modal-bg').classList.remove('open');}
+function bgClick(e){if(e.target===document.getElementById('modal-bg'))closeCfg();}
+function applyCfg(){
+  CFGS.forEach((c,i)=>{
+    c.etb=document.getElementById(`vetb${i}`)?.value||'';
+    c.etc=document.getElementById(`vetc${i}`)?.value||'';
+    c.bod=document.getElementById(`vbod${i}`)?.value||'';
+    c.fw=document.getElementById(`vfw${i}`)?.value.trim()||'';
+    const v=V[c.mmsi];if(v){v.etb=c.etb;v.etc=c.etc;v.bod=c.bod;v.fw=c.fw;}
+  });
+  closeCfg();renderCards();
+}
+
+/* BOOT */
+initMap();initV();
+Object.keys(V).forEach(m=>putMk(m));
+renderCards();setTimeout(fitAll,600);
+setInterval(tick,1000);tick();
+if(IS_SERVER){
+  connectBackend();
+  setInterval(fetchPositions,15*60*1000);
+  fetchPositions();
+}else{
+  startDemo();
+}
+</script>
+</body>
+</html>
