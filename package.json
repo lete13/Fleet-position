@@ -1,6 +1,6 @@
 {
   "name": "jme-fleet-operations",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "JME Navigation S.A. — Fleet Operations Centre",
   "main": "server.js",
   "scripts": {
