@@ -40,9 +40,9 @@ aisstream.io relays AIS picked up by shore stations (its documentation promises 
 | M/V ZOITSA SIGALA | Ultramax | 538005436 |
 | M/V PRINCESS MARGO | Ultramax | 538008208 |
 | M/V PRINCESS EIRINI | Ultramax | 538011213 |
-| M/V HARILAOS JUNIOR | Ultramax | **not set** (IMO 1041506) |
+| M/V HARILAOS JUNIOR | Ultramax | 538011212 (IMO 1041506, call sign V7A6794) |
 
-HARILAOS JUNIOR has no MMSI on file, so it is not on the AIS stream. Either put the MMSI in `fleet.json`, or set `MMSI_OVERRIDES=harilaos-junior:<mmsi>` in Railway. With a second source configured it is looked up by IMO and the MMSI is learned automatically.
+To change an MMSI without a code change, set `MMSI_OVERRIDES=<vessel-id>:<mmsi>` in Railway. A vessel with no MMSI stays off the AIS stream; with a second source configured it is looked up by IMO and the MMSI is learned automatically.
 
 ## Deploy on Railway
 
