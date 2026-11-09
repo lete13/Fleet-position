@@ -1,68 +1,71 @@
 # JME Navigation S.A. — Fleet Operations Centre
 
-Real-time bulk carrier fleet tracker. Built on Node.js + Express + WebSocket, designed for one-click Railway deployment.
+Fleet position board for the six bulk carriers. Node.js + Express + WebSocket, deployed on Railway.
 
-## Architecture
+## How positions get here
 
 ```
-Browser ──WebSocket(/ws)──► Express Server ──WebSocket──► aisstream.io (free AIS)
-         ──GET /api/vessels (15-min poll)──►
+aisstream.io (shore AIS, stream) ─┐
+second source (REST, optional) ───┼─► server ── last known fix per vessel ──► browsers (/ws + 60 s poll)
+noon report typed in by hand ─────┘      │
+                                         └─► data/state.json (survives restarts)
 ```
 
-- Server maintains a persistent WebSocket to **aisstream.io** and caches the latest position for each vessel.
-- All connected browsers receive position updates in real-time via `/ws`.
-- Every 15 minutes the server broadcasts a `refresh` event; browsers re-fetch `/api/vessels` as a safety net.
-- Falls back to animated **demo mode** if the backend is unreachable (e.g. opening the HTML as a local file).
+Every fix, whatever its source, goes through one function that keeps only the newest one per vessel, stamped with the time the position was **taken**, not the time the server heard about it.
 
-## Fleet
+The board never invents a position. Each card shows how old the fix is and where it came from:
 
-| # | Vessel | Type | MMSI |
-|---|--------|------|------|
-| 1 | M/V MOTHER M | Handysize | 538004721 |
-| 2 | M/V MARIGOULA | Supramax | 538005001 |
-| 3 | M/V ZOITSA SIGALA | Ultramax | 538005436 |
-| 4 | M/V PRINCESS MARGO | Ultramax | 538008208 |
-| 5 | M/V PRINCESS EIRINI | Ultramax | 538011213 |
-| 6 | M/V HARILAOS JUNIOR | Ultramax | **538000000** ← update when confirmed (IMO 1041506) |
+| Fix age | Shown as |
+|---|---|
+| under 30 min | green — live |
+| 30 min to 6 h | amber — last received time shown |
+| over 6 h, or none | red — counted under **Stale Fix** in the header |
 
-## Deploy to Railway
+When a vessel was underway at its last fix and that fix is over 30 minutes old, the map also draws a **dashed outline**: the last fix carried forward on its last speed and course, for at most 12 hours. It is an estimate and is labelled as one.
 
-1. Push this repo to GitHub.
-2. In Railway: **New Project → Deploy from GitHub repo** → select this repo.
-3. Add environment variable:
-   ```
-   AIS_API_KEY=your_free_key_from_aisstream.io
-   ```
-4. Railway auto-detects Node.js, runs `npm start`, and assigns a public URL.
-5. Health check: `GET /api/health`
+## Why a vessel goes quiet
 
-## Local development
+aisstream.io relays AIS picked up by shore stations (its documentation promises no satellite coverage and no uptime guarantee). A ship is only heard within VHF range of a station — tens of miles — so a bulk carrier on an ocean passage will show an ageing fix for days. That is a limit of the data source, not a fault in the app. Three ways to close the gap:
+
+1. **Noon reports** — *Voyage Data → Position from noon report*. Accepts `12 34.5 S` / `045 12.3 E` or decimal degrees. Free, and correct mid-ocean.
+2. **A second AIS network** — set `FALLBACK_PROVIDER` + `FALLBACK_API_KEY`. Adapters for VesselFinder and MyShipTracking are included (written against their published API docs; not yet run against a live key). Both are shore networks too: they fill coastal holes, not mid-ocean.
+3. **Satellite AIS** — the only automatic mid-ocean fix. It is a paid product (Kpler/MarineTraffic, Spire, VesselFinder satellite plans). A new provider is one function in `PROVIDERS` in `server.js`.
+
+## Fleet — `fleet.json`
+
+| Vessel | Type | MMSI |
+|---|---|---|
+| M/V MOTHER M | Handysize | 538004721 |
+| M/V MARIGOULA | Supramax | 538005001 |
+| M/V ZOITSA SIGALA | Ultramax | 538005436 |
+| M/V PRINCESS MARGO | Ultramax | 538008208 |
+| M/V PRINCESS EIRINI | Ultramax | 538011213 |
+| M/V HARILAOS JUNIOR | Ultramax | **not set** (IMO 1041506) |
+
+HARILAOS JUNIOR has no MMSI on file, so it is not on the AIS stream. Either put the MMSI in `fleet.json`, or set `MMSI_OVERRIDES=harilaos-junior:<mmsi>` in Railway. With a second source configured it is looked up by IMO and the MMSI is learned automatically.
+
+## Deploy on Railway
+
+1. Deploy this repo; set `AIS_API_KEY` (free key from aisstream.io).
+2. **Attach a Volume** to the service (any mount path, e.g. `/data`). Last known positions are stored there. Without it, each redeploy starts blank.
+3. Optional: `EDIT_TOKEN`, `FALLBACK_*` — see `.env.example`.
+4. Health and data-age check: `GET /api/health`.
+
+## Local
 
 ```bash
-cp .env.example .env
-# Edit .env and add your AIS_API_KEY
+cp .env.example .env    # add AIS_API_KEY
 npm install
-npm run dev     # uses nodemon for auto-restart
+npm run dev             # http://localhost:3000
 ```
 
-Open http://localhost:3000
+Opening `index.html` straight from disk shows a labelled demo with made-up positions.
 
 ## API
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/vessels` | Full fleet snapshot (JSON) |
-| `GET /api/health` | Server health + AIS connection status |
-| `PATCH /api/vessels/:mmsi` | Update ETB / ETC / BOD / FW for a vessel |
-| `WS /ws` | Real-time position stream |
-
-## AIS Key
-
-Register at [aisstream.io](https://aisstream.io) — free, no credit card. The key goes in `AIS_API_KEY`.
-
-## Updating HARILAOS JUNIOR MMSI
-
-When the vessel's MMSI is confirmed, edit line 13 of `server.js`:
-```js
-{ mmsi:'538000000',   // ← replace with actual 9-digit MMSI
-```
+| Endpoint | |
+|---|---|
+| `GET /api/vessels` | Fleet snapshot with fix time, source, track and source status |
+| `GET /api/health` | Fix age per vessel, AIS connection state, last error |
+| `PATCH /api/vessels/:id` | `etb` `etc` `bod` `fw`, and/or a manual fix: `lat` `lng` `posTs` `sog` `cog` |
+| `WS /ws` | `snapshot`, `update`, `status` messages |
