@@ -4,5 +4,5 @@
   { "id": "zoitsa-sigala",   "name": "M/V ZOITSA SIGALA",   "type": "Ultramax Bulk Carrier",  "mmsi": "538005436", "imo": null },
   { "id": "princess-margo",  "name": "M/V PRINCESS MARGO",  "type": "Ultramax Bulk Carrier",  "mmsi": "538008208", "imo": null },
   { "id": "princess-eirini", "name": "M/V PRINCESS EIRINI", "type": "Ultramax Bulk Carrier",  "mmsi": "538011213", "imo": null },
-  { "id": "harilaos-junior", "name": "M/V HARILAOS JUNIOR", "type": "Ultramax Bulk Carrier",  "mmsi": null,        "imo": "1041506" }
+  { "id": "harilaos-junior", "name": "M/V HARILAOS JUNIOR", "type": "Ultramax Bulk Carrier",  "mmsi": "538011212", "imo": "1041506" }
 ]
