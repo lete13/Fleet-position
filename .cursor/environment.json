@@ -1,0 +1,14 @@
+{
+  "name": "JME Fleet Operations Centre",
+  "install": "npm install",
+  "terminals": [
+    {
+      "name": "server",
+      "command": "npm run dev",
+      "description": "Express + WebSocket fleet-tracking server on http://localhost:3000 (nodemon auto-restart). Set AIS_API_KEY for live aisstream.io data; without a valid key the server still runs and the UI shows cached/demo vessel positions."
+    }
+  ],
+  "ports": [
+    { "name": "web", "port": 3000 }
+  ]
+}
